@@ -13,7 +13,7 @@ def getWebsite(website):
 def writeJson(data, game):
     data['Games'].append({
         'game': game.game,
-        'date': game.date,
+        'date': game.gameDate,
         'gameLeague': game.gameLeague,
         'NumberTips': game.faceOff_numTips,
         'ProbHome': game.probHome,
@@ -26,27 +26,42 @@ def writeJson(data, game):
 
     return data
 
+def getGameUrls(urls):
+    website = 'https://www.academiadasapostas.com/tips/listing'
     
+    soup = getWebsite(website)
+
+    for tips in soup.find_all('div', class_="tip"):
+        tip = tips.find('div')
+        urls.append(tip.find('a')['href'])
+    
+    return urls
 
 class game():
     
-    def __init__(self,tips):
-        tip = tips.find('div')
-        game = [lol.text  for lol in tip.find_all('li') if lol.text != '\n']
-        self.game = game[0]+' '+game[1]+' '+game[2]
-        self.gameLeague = tip.h3.text
-        self.gameLeague = self.gameLeague.replace('\n','')
-        self.date = tip.find('p').text
-        self.url = tip.find('a')['href']
+    def __init__(self,url):
+        self.url = url
 
-        self.getStats(self.url)
+        if self.url != '':
+            gameWebsite = getWebsite(self.url)
+            self.getGameInfo(gameWebsite)
+            self.getStats(gameWebsite)
 
 
+    def getGameInfo(self, gameWebsite):
+        headbar = gameWebsite.find('div', class_='breadcrumbs')
+        lista = [listItem.a.span.text for listItem in headbar.find_all('li')]
+        self.game = lista[3]
+        self.gameLeague = lista[2]
 
+        gameData = gameWebsite.find('td', class_="stats-game-head-date")
+        gameStatus = [listItem.text for listItem in gameData.find_all('li') if len(listItem.text) > 1]
+        self.finalScore = gameStatus[0]
+        self.gameStatus = gameStatus[1]
+        self.gameDate = gameStatus[2]
 
-    def getStats(self,url):
-        gameUrl = getWebsite(url)
-        stats = gameUrl.find('div', class_="tab_content")
+    def getStats(self,gameWebsite):
+        stats = gameWebsite.find('div', class_="tab_content")
         faceOff = stats.find('div', id = "market0")
         self.faceOff_numTips = faceOff.find('span', class_="tipsred").text #number of tips made on face off 1x2
         faceOff_container = faceOff.find_all('tr', class_="even")
@@ -68,20 +83,17 @@ class game():
 
         
 if __name__ == "__main__":
-    website = 'https://www.academiadasapostas.com/tips/listing'
     
-    soup = getWebsite(website)
-    
-
-
-    # game(soup.find('div', class_="tip"))
     data = {}
     data['Games'] = []
-    for tips in soup.find_all('div', class_="tip"):
-        gamez = game(tips)
+    matches = []
+    urls = getGameUrls(matches)
+
+    for url in urls:
+        gamez = game(url)
         data = writeJson(data, gamez)
     
-    with open('data.txt', 'w') as outfile:
-        json.dump(data, outfile, indent=3)
+    with open('data.txt', 'w', encoding='utf8') as outfile:
+          json.dump(data, outfile, indent=2, ensure_ascii=False)
 
     

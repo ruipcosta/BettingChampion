@@ -2,15 +2,118 @@ from bs4 import BeautifulSoup
 import requests
 import json
 from datetime import date, timedelta
+import sys
+import getopt
 
 
-days = 30
-    
+def usage():
+    print("Betting Champiom")
+    print()
+    print("Usage: betchamp.py -d days")
+    print("-a --accuracy             - Acurracy of the probabilities in the previous [days]")
+    print("-n --NumTips              - Number of required tips to a game")
+    print()
+    print()
+    print("Examples: ")
+    print("betchamp.py -d 2")
+    print("betchamp.py -d 2 -n 10")
+    print("betchamp.py -d 5 -s")
+    print("betchamp.py -d 5 -s -n 10")
+    sys.exit(0)
+
+
 def getWebsite(website):
     source = requests.get(website).text
-    soup = BeautifulSoup(source, 'lxml')
+    soup = BeautifulSoup(requests.get(website).text, 'lxml')
 
     return soup
+
+def getGameUrls():
+    data = date.today()
+    urls=[]
+
+    for ii in range(days+1):
+        i = 1
+        if accuracy:
+            data2= data - timedelta(ii)
+        else:
+            data2= data + timedelta(ii)
+
+        while True:
+            website = f"https://www.academiadasapostas.com/tips/listing/{data2}/page/{i}"
+            soup = getWebsite(website)
+            listTips = [tips.find('div') for tips in soup.find_all('div', class_="tip")]
+            if not len(listTips):
+                break
+            
+            for tip in listTips:
+                urls.append(tip.find('a')['href'])
+            i+=1
+    return urls
+
+def getGameInfo(gameWebsite):
+    headbar = gameWebsite.find('div', class_='breadcrumbs')
+    lista = [listItem.a.span.text for listItem in headbar.find_all('li')]
+    game = lista[3]
+    gameLeague = lista[2]
+    gameData = gameWebsite.find('td', class_="stats-game-head-date")
+    gameStatus = [listItem.text for listItem in gameData.find_all('li') if len(listItem.text) > 1]
+    finalScore = gameStatus[0] # ' - ' for scheduled games
+
+    if gameStatus[1].find('(') != -1:
+        gameStatus = gameStatus[2] # game ' Terminado ' or ' Agendado ' or real time score
+        ii = 3
+    else:
+        gameStatus = gameStatus[1]
+        ii = 2
+    if len(gameStatus[ii])<26:
+        gameDate = gameStatus[ii]
+    else:
+        gameDate = gameStatus[ii+1]
+
+    return finalScore, game, gameLeague, gameDate, gameStatus
+    
+def getStats(gameWebsite):
+        
+    tab_content = gameWebsite.find('div', class_="tab_content")
+    if tab_content:
+        market0 = tab_content.find('div', id = "market0")
+    else:
+        return None
+
+    if market0:
+        faceOff_numTips = int(market0.find('span', class_="tipsred").text) #number of tips made on face off 1x2
+        faceOff_container = market0.find_all('tr', class_="even")
+        faceOffStats= [stat.find_all('td')  for stat in faceOff_container]
+
+        probHome = faceOffStats[0][1].text
+        probDraw = faceOffStats[1][1].text
+        probAway = faceOffStats[2][1].text
+
+        probHome = int(probHome.split('%')[0])
+        probDraw = int(probDraw.split('%')[0])
+        probAway = int(probAway.split('%')[0])
+
+        if probHome > probDraw and probHome > probAway:
+            toWin = 'Home'
+        elif probDraw > probHome and probDraw > probAway:
+            toWin = 'Draw'
+        else:
+            toWin = 'Away'
+
+        try:
+            oddHome = faceOffStats[0][3].span.text
+            oddDraw = faceOffStats[1][3].span.text
+            oddAway = faceOffStats[2][3].span.text
+        except :
+            oddHome = "-"
+            oddDraw = "-"
+            oddAway = "-"
+    else:
+        return None
+
+    return faceOff_numTips, probHome, probDraw, probAway, oddHome, oddDraw, oddAway, toWin
+
 
 def writeJson(data, game):
     data['Games'].append({
@@ -28,138 +131,97 @@ def writeJson(data, game):
 
     return data
 
-def getGameUrls(urls):
-    data = date.today()
-
-    for ii in range(days):
-        i = 1
-        data2= data - timedelta(2)-timedelta(ii)
-        while True:
-            website = f"https://www.academiadasapostas.com/tips/listing/{data2}/page/{i}"
-            soup = getWebsite(website)
-            listTips = [tips.find('div') for tips in soup.find_all('div', class_="tip")]
-            if not len(listTips):
-                break
-            
-            for tip in listTips:
-                urls.append(tip.find('a')['href'])
-            i+=1
-        
-    return urls
 
 
 class game():
     
-    def __init__(self,url):
-        self.url = url
+    def __init__(self, gameWebsite, gameInfo, gameStats):
+        self.game = gameInfo[1]
+        self.gameLeague = gameInfo[2]
+        self.gameDate = gameInfo[3]
+        self.gameStatus = gameInfo[4]
+        self.faceOff_numTips = gameStats[0]
+        self.probHome = gameStats[1]
+        self.probDraw = gameStats[2]
+        self.probAway = gameStats[3]
+        self.oddHome = gameStats[4]
+        self.oddDraw = gameStats[5]
+        self.oddAway = gameStats[6]
+        self.toWin = gameStats[7]
 
-        if self.url != '':
-            gameWebsite = getWebsite(self.url)
-            self.getGameInfo(gameWebsite)
-            self.getStats(gameWebsite)        
-
-
-    def getGameInfo(self, gameWebsite):
-        headbar = gameWebsite.find('div', class_='breadcrumbs')
-        lista = [listItem.a.span.text for listItem in headbar.find_all('li')]
-        self.game = lista[3]
-        self.gameLeague = lista[2]
-
-        gameData = gameWebsite.find('td', class_="stats-game-head-date")
-        gameStatus = [listItem.text for listItem in gameData.find_all('li') if len(listItem.text) > 1]
-        self.finalScore = gameStatus[0] # ' - ' for scheduled games
-        if gameStatus[1].find('(') != -1:
-            self.gameStatus = gameStatus[2] # game ' Terminado ' or ' Agendado ' or real time score
-            ii = 3
-        else:
-            self.gameStatus = gameStatus[1]
-            ii = 2
-
-        if len(gameStatus[ii])<26:
-            self.gameDate = gameStatus[ii]
-        else:
-            self.gameDate = gameStatus[ii+1]
-
-
-        if self.gameStatus == ' Terminado ':
-            if int(self.finalScore.split('-')[0]) > int(self.finalScore.split('-')[1]):
-                self.won = 'Home'
-            elif int(self.finalScore.split('-')[0]) == int(self.finalScore.split('-')[1]):
-                self.won = 'Draw'
-            else:
-                self.won = 'Away'
-            
-    def getStats(self,gameWebsite):
-        
-        tab_content = gameWebsite.find('div', class_="tab_content")
-        if tab_content:
-            market0 = tab_content.find('div', id = "market0")
-        else:
-            market0 = None
-        if market0:
-            self.faceOff_numTips = market0.find('span', class_="tipsred").text #number of tips made on face off 1x2
-            faceOff_container = market0.find_all('tr', class_="even")
-            faceOffStats= [stat.find_all('td')  for stat in faceOff_container]
-
-            self.probHome = faceOffStats[0][1].text
-            self.probDraw = faceOffStats[1][1].text
-            self.probAway = faceOffStats[2][1].text
-
-            probHome = int(self.probHome.split('%')[0])
-            probDraw = int(self.probDraw.split('%')[0])
-            probAway = int(self.probAway.split('%')[0])
-
-            if probHome > probDraw and probHome > probAway:
-                self.toWin = 'Home'
-            elif probDraw > probHome and probDraw > probAway:
-                self.toWin = 'Draw'
-            else:
-                self.toWin = 'Away'
-
-            try:
-                self.oddHome = faceOffStats[0][3].span.text
-                self.oddDraw = faceOffStats[1][3].span.text
-                self.oddAway = faceOffStats[2][3].span.text
-            except :
-                self.oddHome = "-"
-                self.oddDraw = "-"
-                self.oddAway = "-"
-        
-if __name__ == "__main__":
     
+
+
+class finishedGame(game):
+    
+    def __init__(self, gameWebsite, gameInfo, gameStats):
+        super().__init__(gameWebsite, gameInfo, gameStats)
+        self.finalScore = gameInfo[0]
+
+        if int(self.finalScore.split('-')[0]) > int(self.finalScore.split('-')[1]):
+            self.won = 'Home'
+        elif int(self.finalScore.split('-')[0]) == int(self.finalScore.split('-')[1]):
+            self.won = 'Draw'
+        else:
+            self.won = 'Away'
+
+
+def main():
+    global days
+    global NumTips
+    global accuracy
+    accuracy = False
+    NumTips = 0
+    days = 0
+    counter = 0
     data = {}
     data['Games'] = []
-    matches = []
-    urls = getGameUrls(matches)
-    counter = 0
-    rightCounter = 0
-
-    for url in urls:
-        gamez = game(url)
-        try:
-            gamez.faceOff_numTips
-        except :
-            continue
-        data = writeJson(data, gamez)
-        try: 
-            gamez.won
-        except :
-            continue
-        
-        if int(gamez.faceOff_numTips) > 10:
-            if gamez.toWin == gamez.won:
-                rightCounter += 1
-
-            counter += 1
-        
-
-
+    """
+    if not len(sys.argv[1:]):
+        usage()
+    """
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],"had:n:",["help","accuracy","NumTips"])
+    except getopt.GetoptError as err:
+        print(err)
+        usage()
     
-    print(f'{counter} games played, {rightCounter} guesses right. {(rightCounter/counter)*100}% accuracy.')
+    if "-d" not in sys.argv:
+        print("Days defalted to 0 (today)")
 
+    for o,a in opts:
+        if o in ("-h","--help"):
+            usage()
+        elif o in ("-a","--accuracy"):
+            accuracy = True
+        elif o in ("-n","--NumTips"):
+            NumTips = int(a)
+        elif o in ("-d"):
+            days = int(a)
+        else:
+            assert False,"Unhandled Option"   
 
+    listUrl = getGameUrls()
     
-    # with open('data.txt', 'w', encoding='utf8') as outfile:
-    #       json.dump(data, outfile, indent=2, ensure_ascii=False)
 
-    
+    for url in listUrl:
+        gameWebsite = getWebsite(url)
+        gameInfo = getGameInfo(gameWebsite)
+        gameStats = getStats(gameWebsite)
+
+        if gameStats:
+            if gameInfo[4] == ' Terminado ' and gameStats[0] > NumTips and accuracy:
+                finishedMatch = finishedGame(gameWebsite, gameInfo, gameStats)
+            elif gameInfo[4] == ' Agendado ' and gameStats[0] > NumTips and not accuracy:
+                match = game(gameWebsite, gameInfo, gameStats)
+                data = writeJson(data, match)
+        counter+=1
+        sys.stdout.write("\r%d out of %d games stats completed" % (counter,len(listUrl)))
+        sys.stdout.flush()
+
+
+
+if __name__ == "__main__":
+    print("Betting Champion  ")
+    print()
+    main()

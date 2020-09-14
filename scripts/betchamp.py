@@ -4,6 +4,7 @@ import json
 from datetime import date, timedelta
 import sys
 import getopt
+import pyfiglet
 
 
 def usage():
@@ -23,7 +24,6 @@ def usage():
 
 
 def getWebsite(website):
-    source = requests.get(website).text
     soup = BeautifulSoup(requests.get(website).text, 'lxml')
 
     return soup
@@ -98,8 +98,10 @@ def getStats(gameWebsite):
             toWin = 'Home'
         elif probDraw > probHome and probDraw > probAway:
             toWin = 'Draw'
-        else:
+        elif probAway > probHome and probAway > probDraw:
             toWin = 'Away'
+        else:
+            toWin = 'Inconclusive'
 
         try:
             oddHome = faceOffStats[0][3].span.text
@@ -116,22 +118,40 @@ def getStats(gameWebsite):
 
 
 def writeJson(data, game):
-    data['Games'].append({
-        'game': game.game,
-        'date': game.gameDate,
-        'gameLeague': game.gameLeague,
-        'NumberTips': game.faceOff_numTips,
-        'ProbHome': game.probHome,
-        'OddHome': game.oddHome,
-        'ProbDraw': game.probDraw,
-        'OddDraw': game.oddDraw,
-        'ProbAway': game.probAway,
-        'OddAway': game.oddAway
-    })
 
-    return data
-
-
+    if accuracy:
+        try:
+            game.won
+        except:
+            return
+        data[game.game] = ({
+            'date': game.gameDate,
+            'gameLeague': game.gameLeague,
+            'NumberTips': game.faceOff_numTips,
+            'ProbHome': game.probHome,
+            'OddHome': game.oddHome,
+            'ProbDraw': game.probDraw,
+            'OddDraw': game.oddDraw,
+            'ProbAway': game.probAway,
+            'OddAway': game.oddAway,
+            'ToWin': game.toWin,
+            'Won': game.won,
+            'FinalScore': game.finalScore
+        })
+    else:
+        data[game.game] = ({
+            'date': game.gameDate,
+            'gameLeague': game.gameLeague,
+            'NumberTips': game.faceOff_numTips,
+            'ProbHome': game.probHome,
+            'OddHome': game.oddHome,
+            'ProbDraw': game.probDraw,
+            'OddDraw': game.oddDraw,
+            'ProbAway': game.probAway,
+            'OddAway': game.oddAway,
+            'ToWin': game.toWin
+        })
+    
 
 class game():
     
@@ -149,21 +169,21 @@ class game():
         self.oddAway = gameStats[6]
         self.toWin = gameStats[7]
 
-    
-
-
 class finishedGame(game):
     
     def __init__(self, gameWebsite, gameInfo, gameStats):
         super().__init__(gameWebsite, gameInfo, gameStats)
-        self.finalScore = gameInfo[0]
+        finalScore = gameInfo[0]
+        finalScoreSplit = finalScore.split('-')
 
-        if int(self.finalScore.split('-')[0]) > int(self.finalScore.split('-')[1]):
-            self.won = 'Home'
-        elif int(self.finalScore.split('-')[0]) == int(self.finalScore.split('-')[1]):
-            self.won = 'Draw'
-        else:
-            self.won = 'Away'
+        if finalScoreSplit[0] != ' ':
+            self.finalScore = finalScore
+            if int(finalScoreSplit[0]) > int(finalScoreSplit[1]):
+                self.won = 'Home'
+            elif int(finalScoreSplit[0]) == int(finalScoreSplit[1]):
+                self.won = 'Draw'
+            else:
+                self.won = 'Away'
 
 
 def main():
@@ -174,8 +194,8 @@ def main():
     NumTips = 0
     days = 0
     counter = 0
-    data = {}
-    data['Games'] = []
+    data = dict()
+    file = "games.json"
     """
     if not len(sys.argv[1:]):
         usage()
@@ -194,6 +214,7 @@ def main():
             usage()
         elif o in ("-a","--accuracy"):
             accuracy = True
+            file = "FinishedGames.json"
         elif o in ("-n","--NumTips"):
             NumTips = int(a)
         elif o in ("-d"):
@@ -202,7 +223,6 @@ def main():
             assert False,"Unhandled Option"   
 
     listUrl = getGameUrls()
-    
 
     for url in listUrl:
         gameWebsite = getWebsite(url)
@@ -212,16 +232,20 @@ def main():
         if gameStats:
             if gameInfo[4] == ' Terminado ' and gameStats[0] > NumTips and accuracy:
                 finishedMatch = finishedGame(gameWebsite, gameInfo, gameStats)
+                writeJson(data, finishedMatch)
             elif gameInfo[4] == ' Agendado ' and gameStats[0] > NumTips and not accuracy:
                 match = game(gameWebsite, gameInfo, gameStats)
-                data = writeJson(data, match)
+                writeJson(data, match)
+
         counter+=1
         sys.stdout.write("\r%d out of %d games stats completed" % (counter,len(listUrl)))
         sys.stdout.flush()
 
-
+    with open(file, "w", encoding='utf8') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
-    print("Betting Champion  ")
+    print(pyfiglet.figlet_format("Betting Champion  "))
     print()
     main()
+    print("Statistics completed. Data file created")

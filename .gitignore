@@ -1,5 +1,6 @@
 #personal
 *.txt
+*.json
 statstest.py
 !requirements.txt
 

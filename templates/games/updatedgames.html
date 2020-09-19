@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<body>
+    
+<h1>Updated GAMES</h1>
+
+<!-- {{data.Games.game}} -->
+{% for match in data.Games %}
+    <p>{{match.game}}</p>
+{% endfor %}
+{% endblock %}

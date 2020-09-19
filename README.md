@@ -14,7 +14,7 @@ virtualenv env && source env/bin/activate && pip install -r requirements.txt
 
 # To Do
 * ~~Add data related to all the games (currently only the games on the first page are available)~~
-* ~~Separate finished games from scheduled games
+* ~~Separate finished games from scheduled games~~
 * ~~Add aditional dates (currently only the games of the current day are available)~~
 * Data analysis - Bet report
 * GUI???

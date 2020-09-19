@@ -1,0 +1,46 @@
+html,
+body {
+  overflow-x: hidden; /* Prevent scroll on narrow devices */
+}
+body {
+  background-color: lightblue;
+  padding-bottom: 20px;
+}
+footer {
+  padding: 30px 0;
+}
+.container#jumbo{
+  height: 100px;
+}
+.popupLoading{
+  padding: 5%;
+  text-align: center;
+  text-anchor: end;
+  position: absolute;
+  background-color: whitesmoke;
+  border: 3px solid darkblue;
+  border-radius: 5px;
+  height: 50%;
+  width: 50%;
+  left: 25%;
+  top: 10%;
+}
+.tip{
+    position: relative;
+    border: 2px solid black;
+    border-radius: 25px;
+    margin: 0%;
+    height: 100px;
+    width: 100px;
+}
+
+.jumbotron{
+    background-image: url("../img/logo.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 30%;
+    background-color: white; 
+  margin-bottom: 0px;
+}
+
+

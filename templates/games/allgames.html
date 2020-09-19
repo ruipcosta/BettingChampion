@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static "css/tips.css" %}">
+<link rel="stylesheet" type="text/css" href="{% static "css/carousel.css" %}">
+{% load mathfilters %}
+{% endblock %}
+
+{% block content %}
+<body onload="allGames()">
+<div class="jumbotron">
+    <div class="container" id="jumbo"> </div>
+</div>
+
+<div id="myCarousel" class="carousel slide" data-ride="carousel">
+    <ol class="carousel-indicators">
+      <!-- <li data-target="#myCarousel" data-slide-to="0" class="active"></li>   -->
+      {% with n=object_list|length|div:10 %}
+      {% with no=object_list|length|intdiv:10 %}
+      {% with tot=n|add:no %}
+      {% with ''|center:tot as range %}
+      {% for _ in range %}
+      <li data-target="#myCarousel" data-slide-to="{{ forloop.counter }}"></li>
+      {% endfor %}
+      {% endwith %}
+      {% endwith %}
+      {% endwith %}
+      {% endwith %}
+    </ol>
+    <div class="carousel-inner">
+        <div class="carousel-item active">
+            <div class="container">
+            </div>
+        </div>
+        <div class="carousel-item">
+            <div class="container-tips">
+                {% for match in object_list %}
+                {% if forloop.counter == 10 or forloop.counter == 20 or forloop.counter == 30 or forloop.counter == 40 or forloop.counter == 50   %}
+                </div>
+                </div>
+                <div class="carousel-item">
+                <div class="container-tips">
+                {% endif %}
+                <div class="card">
+                    <div class="title-container">
+                        <h3 class="title">{{match.game}}</h3>
+                    </div>
+                    <div class="info-container">
+                        <h5 class="toWin">{{match.ToWin}}</h5>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <a class="carousel-control-prev" href="#myCarousel" role="button" data-slide="prev">
+      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+      <span class="sr-only">Previous</span>
+    </a>
+    <a class="carousel-control-next" href="#myCarousel" role="button" data-slide="next">
+      <span class="carousel-control-next-icon" aria-hidden="true"></span>
+      <span class="sr-only">Next</span>
+    </a>
+</div>
+{% endblock %} 

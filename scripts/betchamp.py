@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import json
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import sys
 import getopt
 import pyfiglet
@@ -22,13 +22,43 @@ def usage():
     print("betchamp.py -d 5 -s -n 10")
     sys.exit(0)
 
+def init():
+    print(pyfiglet.figlet_format("Betting Champion  "))
+    print()
+    if not len(sys.argv[1:]):
+        usage()
+    
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],"had:n:",["help","accuracy","NumTips"])
+    except getopt.GetoptError as err:
+        print(err)
+        usage()
+    
+    if "-d" not in sys.argv:
+        print("Days defalted to 0 (today)")
+
+    for o,a in opts:
+        if o in ("-h","--help"):
+            usage()
+        elif o in ("-a","--accuracy"):
+            accuracy = True
+            file = "FinishedGames.json"
+        elif o in ("-n","--NumTips"):
+            NumTips = int(a)
+        elif o in ("-d"):
+            days = int(a)
+        else:
+            assert False,"Unhandled Option"
+    
+    return days, file, NumTips, accuracy
 
 def getWebsite(website):
     soup = BeautifulSoup(requests.get(website).text, 'lxml')
 
     return soup
 
-def getGameUrls():
+def getGameUrls(days, accuracy):
+    timestart = datetime.now()
     data = date.today()
     urls=[]
 
@@ -49,6 +79,7 @@ def getGameUrls():
             for tip in listTips:
                 urls.append(tip.find('a')['href'])
             i+=1
+    print("getGameUrls", datetime.now()-timestart)
     return urls
 
 def getGameInfo(gameWebsite):
@@ -70,11 +101,9 @@ def getGameInfo(gameWebsite):
         gameDate = gameStatus[ii]
     else:
         gameDate = gameStatus[ii+1]
-
     return finalScore, game, gameLeague, gameDate, gameStatus
     
 def getStats(gameWebsite):
-        
     tab_content = gameWebsite.find('div', class_="tab_content")
     if tab_content:
         market0 = tab_content.find('div', id = "market0")
@@ -104,27 +133,28 @@ def getStats(gameWebsite):
             toWin = 'Inconclusive'
 
         try:
-            oddHome = faceOffStats[0][3].span.text
-            oddDraw = faceOffStats[1][3].span.text
-            oddAway = faceOffStats[2][3].span.text
+            oddHome = float(faceOffStats[0][3].span.text)
+            oddDraw = float(faceOffStats[1][3].span.text)
+            oddAway = float(faceOffStats[2][3].span.text)
         except :
-            oddHome = "-"
-            oddDraw = "-"
-            oddAway = "-"
+            oddHome = 0
+            oddDraw = 0
+            oddAway = 0
     else:
         return None
-
+    
     return faceOff_numTips, probHome, probDraw, probAway, oddHome, oddDraw, oddAway, toWin
 
 
-def writeJson(data, game):
+def writeJson(data, game, accuracy):
 
     if accuracy:
         try:
             game.won
         except:
             return
-        data[game.game] = ({
+        data['Games'].append({
+            'game': game.game,
             'date': game.gameDate,
             'gameLeague': game.gameLeague,
             'NumberTips': game.faceOff_numTips,
@@ -139,10 +169,11 @@ def writeJson(data, game):
             'FinalScore': game.finalScore
         })
     else:
-        data[game.game] = ({
+        data['Games'].append({
+            'game': game.game,
             'date': game.gameDate,
             'gameLeague': game.gameLeague,
-            'NumberTips': game.faceOff_numTips,
+            'numberTips': game.faceOff_numTips,
             'ProbHome': game.probHome,
             'OddHome': game.oddHome,
             'ProbDraw': game.probDraw,
@@ -185,67 +216,67 @@ class finishedGame(game):
             else:
                 self.won = 'Away'
 
-
-def main():
-    global days
-    global NumTips
-    global accuracy
-    accuracy = False
-    NumTips = 0
-    days = 0
-    counter = 0
+def createJson(listUrl):
     data = dict()
-    file = "games.json"
-    """
-    if not len(sys.argv[1:]):
-        usage()
-    """
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],"had:n:",["help","accuracy","NumTips"])
-    except getopt.GetoptError as err:
-        print(err)
-        usage()
-    
-    if "-d" not in sys.argv:
-        print("Days defalted to 0 (today)")
+    data['Meta']={
+        'Time':  datetime.now().strftime("%Y-%m-%d %H:%M"),
+        'NumberGames': len(listUrl)
+    }
+    data['Games']=[]
+    return data
 
-    for o,a in opts:
-        if o in ("-h","--help"):
-            usage()
-        elif o in ("-a","--accuracy"):
-            accuracy = True
-            file = "FinishedGames.json"
-        elif o in ("-n","--NumTips"):
-            NumTips = int(a)
-        elif o in ("-d"):
-            days = int(a)
-        else:
-            assert False,"Unhandled Option"   
 
-    listUrl = getGameUrls()
 
+def run(listUrl, NumTips, accuracy):
+    timestart = datetime.now()
+    counter = 0
     for url in listUrl:
         gameWebsite = getWebsite(url)
         gameInfo = getGameInfo(gameWebsite)
         gameStats = getStats(gameWebsite)
-
         if gameStats:
             if gameInfo[4] == ' Terminado ' and gameStats[0] > NumTips and accuracy:
                 finishedMatch = finishedGame(gameWebsite, gameInfo, gameStats)
-                writeJson(data, finishedMatch)
+                writeJson(data, finishedMatch, accuracy)
             elif gameInfo[4] == ' Agendado ' and gameStats[0] > NumTips and not accuracy:
                 match = game(gameWebsite, gameInfo, gameStats)
-                writeJson(data, match)
+                writeJson(data, match, accuracy)
+
 
         counter+=1
-        sys.stdout.write("\r%d out of %d games stats completed" % (counter,len(listUrl)))
-        sys.stdout.flush()
+        # sys.stdout.write("\r%d out of %d games stats completed" % (counter,len(listUrl)))
+        # sys.stdout.flush()
+    print("run", datetime.now()-timestart)
+    return data
 
-    with open(file, "w", encoding='utf8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+def initialRun(days, accuracy):
+    timestart = datetime.now()
+    listUrl = getGameUrls(days, accuracy)
+    data = createJson(listUrl)
+    print("initialRun-",len(listUrl), datetime.now()-timestart)
+    return listUrl, data
+
+def main():
+    timestart = datetime.now()
+    accuracy = False
+    NumTips = 0
+    days = 0
+    file = "games.json"
+    global data
+    # days, file, NumTips, accuracy = init()
+    listUrl, data = initialRun(days, accuracy)
+
+    data = run(listUrl, NumTips, accuracy)
+
+    # with open(file, "w", encoding='utf8') as f:
+    #     json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+    print("main", datetime.now()-timestart)
+    # print("Statistics completed. Data file created")~
+    return data
+
+
+    
 
 if __name__ == "__main__":
-    print(pyfiglet.figlet_format("Betting Champion  "))
-    print()
+    
     main()
-    print("Statistics completed. Data file created")

@@ -1,66 +1,202 @@
-{% extends 'base.html' %}
-
-{% block head %}
-{% load static %}
-<link rel="stylesheet" type="text/css" href="{% static "css/tips.css" %}">
-<link rel="stylesheet" type="text/css" href="{% static "css/carousel.css" %}">
-{% load mathfilters %}
-{% endblock %}
-
-{% block content %}
+{% extends 'base.html' %} {% block head %} {% load static %} <link
+rel="stylesheet" type="text/css" href="{% static "css/tips.css" %}"> <link
+rel="stylesheet" type="text/css" href="{% static "css/carousel.css" %}"> {% load
+mathfilters %} {% endblock %} {% block content %}
 <body onload="allGames()">
-<div class="jumbotron">
-    <div class="container" id="jumbo"> </div>
-</div>
+  <div class="jumbotron">
+    <div class="container" id="jumbo"></div>
+  </div>
 
-<div id="myCarousel" class="carousel slide" data-ride="carousel">
-    <ol class="carousel-indicators">
-      <!-- <li data-target="#myCarousel" data-slide-to="0" class="active"></li>   -->
-      {% with n=object_list|length|div:10 %}
-      {% with no=object_list|length|intdiv:10 %}
-      {% with tot=n|add:no %}
-      {% with ''|center:tot as range %}
-      {% for _ in range %}
-      <li data-target="#myCarousel" data-slide-to="{{ forloop.counter }}"></li>
-      {% endfor %}
-      {% endwith %}
-      {% endwith %}
-      {% endwith %}
-      {% endwith %}
-    </ol>
-    <div class="carousel-inner">
-        <div class="carousel-item active">
-            <div class="container">
+  <div id="accordion">
+    <div class="card">
+      <div class="card-header" id="featured-card">
+        <h5 class="mb-0">
+          <button
+            class="btn btn-link"
+            data-toggle="collapse"
+            data-target="#featured"
+            aria-expanded="true"
+            aria-controls="featured"
+          >
+            Featured
+          </button>
+        </h5>
+      </div>
+      <div
+        id="featured"
+        class="collapse show"
+        aria-labelledby="featured-card"
+        data-parent="#accordion"
+      >
+        <div
+          id="myCarousel"
+          class="carousel slide"
+          data-ride="carousel"
+          data-interval="false"
+        >
+          <ol class="carousel-indicators">
+            <!-- <li data-target="#myCarousel" data-slide-to="0" class="active"></li>   -->
+
+            {% with no=object_list|length|intdiv:10 %} {% if
+            object_list|length|divisibleby:"10"%} {% with ''|center:no as range
+            %} {% for _ in range %}
+            <li
+              data-target="#myCarousel"
+              data-slide-to="{{ forloop.counter }}"
+            ></li>
+            {% endfor %} {% endwith %} {% else %} {% with tot=no|add:1 %} {%
+            with ''|center:tot as range %} {% for _ in range %}
+            <li
+              data-target="#myCarousel"
+              data-slide-to="{{ forloop.counter }}"
+            ></li>
+            {% endfor %} {% endwith %} {% endwith %} {% endif %} {% endwith %}
+          </ol>
+          <div class="carousel-inner">
+            <div class="carousel-item active">
+              <div class="container-tips">
+                {% for match in object_list %} {% if forloop.counter0 == 10 or
+                forloop.counter0 == 20 or forloop.counter0 == 30 or
+                forloop.counter0 == 40 or forloop.counter0 == 50 or
+                forloop.counter0 == 60 or forloop.counter0 == 70 or
+                forloop.counter0 == 80 or forloop.counter0 == 90 or
+                forloop.counter0 == 100 %}
+              </div>
             </div>
-        </div>
-        <div class="carousel-item">
-            <div class="container-tips">
-                {% for match in object_list %}
-                {% if forloop.counter == 10 or forloop.counter == 20 or forloop.counter == 30 or forloop.counter == 40 or forloop.counter == 50   %}
-                </div>
-                </div>
-                <div class="carousel-item">
-                <div class="container-tips">
+            <div class="carousel-item">
+              <div class="container-tips">
                 {% endif %}
-                <div class="card">
-                    <div class="title-container">
-                        <h3 class="title">{{match.game}}</h3>
-                    </div>
-                    <div class="info-container">
-                        <h5 class="toWin">{{match.ToWin}}</h5>
-                    </div>
+                <div class="cardtip">
+                  <div class="title-container">
+                    <h3 class="title">{{match.home}}</h3>
+                    <h2 class="title" id="vs">VS</h2>
+                    <h3 class="title">{{match.away}}</h3>
+                  </div>
+                  <div class="info-container">
+                    <h5 class="info">{{match.gameLeague}}</h5>
+                  </div>
                 </div>
                 {% endfor %}
+              </div>
             </div>
+          </div>
+          <a
+            class="carousel-control-prev"
+            href="#myCarousel"
+            role="button"
+            data-slide="prev"
+          >
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="sr-only">Previous</span>
+          </a>
+          <a
+            class="carousel-control-next"
+            href="#myCarousel"
+            role="button"
+            data-slide="next"
+          >
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="sr-only">Next</span>
+          </a>
         </div>
+      </div>
     </div>
-    <a class="carousel-control-prev" href="#myCarousel" role="button" data-slide="prev">
-      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-      <span class="sr-only">Previous</span>
-    </a>
-    <a class="carousel-control-next" href="#myCarousel" role="button" data-slide="next">
-      <span class="carousel-control-next-icon" aria-hidden="true"></span>
-      <span class="sr-only">Next</span>
-    </a>
-</div>
-{% endblock %} 
+    {% for league in leagues %}
+    <div class="card">
+      <div class="card-header" id="{{league|slugify}}-card">
+        <h5 class="mb-0">
+          <button
+            class="btn btn-link"
+            data-toggle="collapse"
+            data-target="#{{league|slugify}}"
+            aria-expanded="true"
+            aria-controls="{{league|slugify}}"
+          >
+            {{ league }}
+          </button>
+        </h5>
+      </div>
+      <div
+        id="{{league|slugify}}"
+        class="collapse"
+        aria-labelledby="{{league|slugify}}-card"
+        data-parent="#accordion"
+      >
+        <div
+          id="myCarousel{{league|slugify}}"
+          class="carousel slide"
+          data-ride="carousel"
+          data-interval="false"
+        >
+          <ol class="carousel-indicators">
+            <!-- <li data-target="#myCarousel" data-slide-to="0" class="active"></li>   -->
+
+            {% with no=object_list|length|intdiv:10 %} {% if
+            object_list|length|divisibleby:"10"%} {% with ''|center:no as range
+            %} {% for _ in range %}
+            <li
+              data-target="#myCarousel"
+              data-slide-to="{{ forloop.counter }}"
+            ></li>
+            {% endfor %} {% endwith %} {% else %} {% with tot=no|add:1 %} {%
+            with ''|center:tot as range %} {% for _ in range %}
+            <li
+              data-target="#myCarousel"
+              data-slide-to="{{ forloop.counter }}"
+            ></li>
+            {% endfor %} {% endwith %} {% endwith %} {% endif %} {% endwith %}
+          </ol>
+          <div class="carousel-inner">
+            <div class="carousel-item active">
+              <div class="container-tips">
+                {% for match in object_list %} {% if forloop.counter0 == 10 or
+                forloop.counter0 == 20 or forloop.counter0 == 30 or
+                forloop.counter0 == 40 or forloop.counter0 == 50 or
+                forloop.counter0 == 60 or forloop.counter0 == 70 or
+                forloop.counter0 == 80 or forloop.counter0 == 90 or
+                forloop.counter0 == 100 %}
+              </div>
+            </div>
+            <div class="carousel-item">
+              <div class="container-tips">
+                {% endif %}
+                <div class="cardtip">
+                  <div class="title-container">
+                    <h3 class="title">{{match.home}}</h3>
+                    <h3 class="title">VS</h3>
+                    <h3 class="title">{{match.away}}</h3>
+                  </div>
+                  <div class="info-container">
+                    <h5 class="info">{{match.gameLeague}}</h5>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          <a
+            class="carousel-control-prev"
+            href="#myCarousel{{league|slugify}}"
+            role="button"
+            data-slide="prev"
+          >
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="sr-only">Previous</span>
+          </a>
+          <a
+            class="carousel-control-next"
+            href="#myCarousel{{league|slugify}}"
+            role="button"
+            data-slide="next"
+          >
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="sr-only">Next</span>
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% endblock %}
+</body>

@@ -3,36 +3,52 @@ import requests
 from datetime import date, timedelta, datetime
 import sys
 import getopt
+import json
 
 # FOR THE WEBSITE (NO ACCURACY, NO JSON)
 
 class Game():
-    def __init__(self, teams, date, url):
-        self.game = teams
-        self.gameDate = date
-        self.url = url
-        self.stats()
-        
-        
-    def stats(self):
-        gameStats=getStats(self.url)
-        if gameStats != None:
-            self.faceOff_numTips = gameStats[0]
-            self.probHome = gameStats[1]
-            self.probDraw = gameStats[2]
-            self.probAway = gameStats[3]
-            self.oddHome = gameStats[4]
-            self.oddDraw = gameStats[5]
-            self.oddAway = gameStats[6]
-            self.toWin = gameStats[7]
-            self.gameLeague = gameStats[8]
+    def __init__(self, gameInfo, gameStats):
+        self.home = gameInfo[0][0]
+        self.away = gameInfo[0][1]
+        self.gameDate = gameInfo[1]
+        self.url = gameInfo[2]
+        self.faceOff_numTips = gameStats[0]
+        self.probHome = gameStats[1]
+        self.probDraw = gameStats[2]
+        self.probAway = gameStats[3]
+        self.toWin = gameStats[4]
+        self.gameLeague = gameStats[5]
 
 def getWebsite(website):
     soup = BeautifulSoup(requests.get(website).text, 'lxml')
 
     return soup
 
+def writeJSON(data, game):
+    data['Games'].append({
+            'home': game.home,
+            'away': game.away,
+            'date': game.gameDate,
+            'gameLeague': game.gameLeague,
+            'numberTips': game.faceOff_numTips,
+            'ProbHome': game.probHome,
+            'ProbDraw': game.probDraw,
+            'ProbAway': game.probAway,
+            'ToWin': game.toWin
+        })
+    return data
+
+def createJSON():
+    data = dict()
+    data['Meta']={
+        'Time':  datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+    data['Games']=[]
+    return data
+
 def run(days):
+    jsonFile=createJSON()
     data = date.today()
     for ii in range(days+1):
         i = 1
@@ -44,18 +60,27 @@ def run(days):
             if not len(listTips):
                 break
             
-            getGameInfo(listTips)
+            jsonFile=getGameInfo(listTips, jsonFile)
             i+=1
+    # jsonFile = json.dumps(jsonFile,ensure_ascii=False)
+    return jsonFile
 
-def getGameInfo(listTips):
-    for tip in listTips:
+def getGameInfo(listTips, jsonFile):
+    for tip in listTips[0]:
         tipData=tip.find('img').find_next_siblings()
-        teams = tipData[0].text.replace('\n','')
+        teams = tipData[0].text
         date = tipData[1].text
-        url = tipData[2]['href']
-        if 'x' in teams:
-            Game(teams, date, url)
-
+        try: url = tipData[2]['href']
+        except: continue
+        if '\nx\n' in teams:
+            teams = teams.split('\nx\n')
+            teams=[teams[0].replace('\n',''),teams[1].replace('\n','')]
+            gameInfo=[teams,date,url]
+            gameStats = getStats(url)
+            if gameStats != None:
+                match=Game(gameInfo,gameStats)
+                jsonFile= writeJSON(jsonFile,match)
+    return jsonFile
 
 def getStats(url):
     gameWebsite = getWebsite(url)
@@ -91,19 +116,11 @@ def getStats(url):
             toWin = 'Away'
         else:
             toWin = 'Inconclusive'
-
-        try:
-            oddHome = float(faceOffStats[0][3].span.text)
-            oddDraw = float(faceOffStats[1][3].span.text)
-            oddAway = float(faceOffStats[2][3].span.text)
-        except :
-            oddHome = 0
-            oddDraw = 0
-            oddAway = 0
     else:
         return None
     
-    return faceOff_numTips, probHome, probDraw, probAway, oddHome, oddDraw, oddAway, toWin, gameLeague
+    gameStats=[faceOff_numTips, probHome, probDraw, probAway, toWin, gameLeague]
+    return gameStats
 
 if __name__ == "__main__":
     timestart = datetime.now()

@@ -41,7 +41,6 @@ INSTALLED_APPS = [
     # own
     'pages',
     'games',
-    'finishedgames',
     'mathfilters',
 ]
 

@@ -20,53 +20,26 @@ class Game():
         self.toWin = gameStats[4]
         self.gameLeague = gameStats[5]
 
-def getWebsite(website):
-    soup = BeautifulSoup(requests.get(website).text, 'lxml')
-
-    return soup
-
-def writeJSON(data, game):
-    data['Games'].append({
-            'home': game.home,
-            'away': game.away,
-            'date': game.gameDate,
-            'gameLeague': game.gameLeague,
-            'numberTips': game.faceOff_numTips,
-            'ProbHome': game.probHome,
-            'ProbDraw': game.probDraw,
-            'ProbAway': game.probAway,
-            'ToWin': game.toWin
-        })
-    return data
-
-def createJSON():
-    data = dict()
-    data['Meta']={
-        'Time':  datetime.now().strftime("%Y-%m-%d %H:%M")
-    }
-    data['Games']=[]
-    return data
 
 def run(days):
-    jsonFile=createJSON()
-    data = date.today()
+    time = date.today()
     for ii in range(days+1):
         i = 1
-        data2= data + timedelta(ii)
+        deltaTime= time + timedelta(ii)
         while True:
-            website = f"https://www.academiadasapostas.com/tips/listing/{data2}/page/{i}"
-            soup = getWebsite(website)
+            website = f"https://www.academiadasapostas.com/tips/listing/{deltaTime}/page/{i}"
+            soup = BeautifulSoup(requests.get(website).text, 'lxml')
             listTips = [tips.find('div') for tips in soup.find_all('div', class_="tip")]
             if not len(listTips):
                 break
             
             jsonFile=getGameInfo(listTips, jsonFile)
             i+=1
-    # jsonFile = json.dumps(jsonFile,ensure_ascii=False)
+
     return jsonFile
 
 def getGameInfo(listTips, jsonFile):
-    for tip in listTips[0]:
+    for tip in listTips:
         tipData=tip.find('img').find_next_siblings()
         teams = tipData[0].text
         date = tipData[1].text
@@ -83,7 +56,7 @@ def getGameInfo(listTips, jsonFile):
     return jsonFile
 
 def getStats(url):
-    gameWebsite = getWebsite(url)
+    gameWebsite = BeautifulSoup(requests.get(url).text, 'lxml')
 
     headbar = gameWebsite.find('div', class_='breadcrumbs')
     lista = [listItem.a.span.text for listItem in headbar.find_all('li')]
@@ -93,7 +66,7 @@ def getStats(url):
     if tab_content:
         market0 = tab_content.find('div', id = "market0")
     else:
-        return None
+        return
 
     if market0:
         faceOff_numTips = int(market0.find('span', class_="tipsred").text) #number of tips made on face off 1x2
